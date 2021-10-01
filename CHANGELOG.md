@@ -1,6 +1,11 @@
 Change log
 -----------
 
+# v2.85.9
+## (2021-10-01)
+
+* common: docker-disk: bump tag to 20.10.8-dind [Joseph Kogut]
+
 # v2.85.8
 ## (2021-09-29)
 
