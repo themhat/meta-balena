@@ -11,6 +11,11 @@ const fse = require('fs-extra');
 const { join } = require('path');
 const { homedir } = require('os');
 
+// required for unwrapping images
+const imagefs = require('balena-image-fs');
+const stream = require('stream')
+const pipeline = require('bluebird').promisify(stream.pipeline);
+
 module.exports = {
 	title: 'Unmanaged BalenaOS release suite',
 	run: async function(test) {
@@ -18,15 +23,41 @@ module.exports = {
 		const Worker = this.require('common/worker');
 		// The balenaOS class contains information on the OS image to be flashed, and methods to configure it
 		const BalenaOS = this.require('components/os/balenaos');
+		const utils = this.require('common/utils');
+		const worker = new Worker(this.suite.deviceType.slug, this.getLogger());
 
 		await fse.ensureDir(this.suite.options.tmpdir);
 
+		let systemd = {
+			/**
+			 * Wait for a service to be active/inactive
+			 * @param {string} serviceName systemd service to query and wait for
+			 * @param {string} state active|inactive
+			 * @param {string} target the address of the device to query
+			 *
+			 * @category helper
+			 */
+			waitForServiceState: async function (serviceName, state, target) {
+				return utils.waitUntil(async () => {
+					return worker.executeCommandInHostOS(
+						`systemctl is-active ${serviceName}`,
+						target,
+					).then((serviceStatus) => {
+						return Promise.resolve(serviceStatus === state);
+					}).catch((err) => {
+						Promise.reject(err);
+					});
+				}, 120, 250);
+			},
+		};
+
 		// The suite contex is an object that is shared across all tests. Setting something into the context makes it accessible by every test
 		this.suite.context.set({
-			utils: this.require('common/utils'),
+			utils: utils,
+			systemd: systemd,
 			sshKeyPath: join(homedir(), 'id'),
 			link: `${this.suite.options.balenaOS.config.uuid.slice(0, 7)}.local`,
-			worker: new Worker(this.suite.deviceType.slug, this.getLogger()),
+			worker: worker,
 		});
 
 		// Network definitions - here we check what network configuration is selected for the DUT for the suite, and add the appropriate configuration options (e.g wifi credentials)
@@ -62,6 +93,8 @@ module.exports = {
 									.utils.createSSHKey(this.context.get().sshKeyPath),
 							],
 						},
+						// Set an API endpoint for the HTTPS time sync service.
+						apiEndpoint: 'https://api.balena-cloud.com',
 						// persistentLogging is managed by the supervisor and only read at first boot
 						persistentLogging: true,
 						// Set local mode so we can perform local pushes of containers to the DUT
@@ -88,6 +121,32 @@ module.exports = {
 
 		// Unpack OS image .gz
 		await this.context.get().os.fetch();
+
+		// If this is a flasher image, and we are using qemu, unwrap
+		if(this.suite.deviceType.data.storage.internal && (process.env.WORKER_TYPE === `qemu`)){
+			const RAW_IMAGE_PATH = `/opt/balena-image-${this.suite.deviceType.slug}.balenaos-img`
+			const OUTPUT_IMG_PATH = '/data/downloads/unwrapped.img'
+			console.log(`Unwrapping file ${this.context.get().os.image.path}`)
+			console.log(`Looking for ${RAW_IMAGE_PATH}`)
+			try{
+				await imagefs.interact(this.context.get().os.image.path, 2, async (fsImg) => {
+					await pipeline(
+					fsImg.createReadStream(RAW_IMAGE_PATH),
+					fse.createWriteStream(OUTPUT_IMG_PATH)
+					)
+				})
+
+				this.context.get().os.image.path = OUTPUT_IMG_PATH;
+				console.log(`Unwrapped flasher image!`);
+			}catch(e){
+				// If the outer image doesn't contain an image for installation, ignore the error
+				if (e.code == 'ENOENT') {
+					console.log("Not a flasher image, skipping unwrap");
+				} else {
+					throw e;
+				}
+			}
+		}
 
 		// Configure OS image
 		await this.context.get().os.configure();
@@ -116,8 +175,11 @@ module.exports = {
 
 	},
 	tests: [
+		'./tests/device-specific-tests/beaglebone-black',
 		'./tests/fingerprint',
+		'./tests/fsck',
 		'./tests/os-release',
+		'./tests/issue',
 		'./tests/chrony',
 		'./tests/kernel-overlap',
 		'./tests/bluetooth',
@@ -127,8 +189,10 @@ module.exports = {
 		'./tests/config-json',
 		'./tests/boot-splash',
 		'./tests/connectivity',
-		'./tests/engine-healthcheck',
+		'./tests/engine-socket',
 		'./tests/udev',
 		'./tests/device-tree',
+		'./tests/purge-data',
+		'./tests/device-specific-tests/revpi-core-3',
 	],
 };

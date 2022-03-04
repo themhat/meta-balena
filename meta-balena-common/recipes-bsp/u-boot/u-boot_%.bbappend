@@ -1,11 +1,3 @@
-FILESEXTRAPATHS_append := ":${THISDIR}/files"
-
-# We require these uboot config options to be enabled for env_resin.h
-SRC_URI += "file://balenaos_uboot.cfg"
-
-SRC_URI += "${@bb.utils.contains('DISTRO_FEATURES', 'osdev-image', '', 'file://balenaos_uboot_prod.cfg', d)}"
-SRC_URI += "${@bb.utils.contains('DISTRO_FEATURES', 'osdev-image', 'file://balenaos_uboot_delay.cfg', 'file://balenaos_uboot_nodelay.cfg', d)}"
-
 # Since 11278e3b2c75be80645b9841763a97dbb35daadc u-boot.inc has support
 # for ammending the bsp uboot with config fragments. We copy that
 # over in meta-balena-common to apply to pre-warrior layers.
@@ -18,7 +10,7 @@ inherit uboot-config uboot-extlinux-config uboot-sign deploy cml1
 # break do_install without additional changes to do_compile first
 # https://github.com/balena-os/poky/commit/d7b8ae3faa9344f2ada22e0402066c2fff5958c6
 UBOOT_INITIAL_ENV = ""
-ALLOW_EMPTY_${PN}-env = "1"
+ALLOW_EMPTY:${PN}-env = "1"
 
 # returns all the elements from the src uri that are .cfg files
 def find_cfgs(d):

@@ -1,4 +1,4 @@
-# Copyright 2020 Balena Ltd.
+# Copyright 2020-2021 Balena Ltd.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 [Unit]
 Description=Periodically update the saved fake-hwclock.
-After=time-sync.target
+After=time-sync-https-wait.target
 
 [Timer]
 OnCalendar=hourly

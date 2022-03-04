@@ -1,10 +1,17 @@
-FILESEXTRAPATHS_append := ":${BALENA_COREBASE}/recipes-bsp/u-boot/patches"
+FILESEXTRAPATHS:append := ":${BALENA_COREBASE}/recipes-bsp/u-boot/files"
+FILESEXTRAPATHS:append := ":${BALENA_COREBASE}/recipes-bsp/u-boot/patches"
 
 INTEGRATION_KCONFIG_PATCH = "file://resin-specific-env-integration-kconfig.patch"
 INTEGRATION_NON_KCONFIG_PATCH = "file://resin-specific-env-integration-non-kconfig.patch"
 
+# We require these uboot config options to be enabled for env_resin.h
+SRC_URI += "file://balenaos_uboot.cfg"
+
+SRC_URI += "${@bb.utils.contains('DISTRO_FEATURES', 'osdev-image', '', 'file://balenaos_uboot_prod.cfg', d)}"
+SRC_URI += "${@bb.utils.contains('DISTRO_FEATURES', 'osdev-image', 'file://balenaos_uboot_delay.cfg', 'file://balenaos_uboot_nodelay.cfg', d)}"
+
 # Machine independent patches
-SRC_URI_append = " \
+SRC_URI:append = " \
     file://env_resin.h \
     ${@bb.utils.contains('UBOOT_KCONFIG_SUPPORT', '1', '${INTEGRATION_KCONFIG_PATCH}', '${INTEGRATION_NON_KCONFIG_PATCH}', d)} \
     "
@@ -18,7 +25,7 @@ python __anonymous() {
 
 # A static patch won't apply to all u-boot versions, therefore
 # we edit the sources to silent the console in production builds.
-do_configure_append() {
+do_configure:append() {
     if ${@bb.utils.contains('DISTRO_FEATURES', 'osdev-image', 'false', 'true', d)}; then
         if grep -qP "void puts\(const char \*s\)" ${S}/common/console.c ; then
             line=$(grep -nP "void puts\(const char \*s\)" ${S}/common/console.c | cut -f1 -d:)
@@ -95,7 +102,7 @@ do_inject_config_resin () {
     sed -i '/^#endif.*/i #include <config_resin.h>' ${S}/include/config_defaults.h
 }
 
-do_deploy_append() {
+do_deploy:append() {
     touch ${DEPLOYDIR}/extra_uEnv.txt
 }
 

@@ -17,11 +17,14 @@ PACKAGE_INSTALL = " \
     initramfs-module-resindataexpander \
     initramfs-module-rorootfs \
     initramfs-module-udev \
+    initramfs-module-udevcleanup \
     initramfs-framework-base \
     udev \
     mdadm \
     ${ROOTFS_BOOTSTRAP_INSTALL} \
     "
+
+PACKAGE_INSTALL:append = "${@oe.utils.conditional('SIGN_API','','',' initramfs-module-cryptsetup initramfs-module-kexec',d)}"
 
 # Do not pollute the initrd image with rootfs features
 IMAGE_FEATURES = ""

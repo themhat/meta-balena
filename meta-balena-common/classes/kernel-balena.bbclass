@@ -53,13 +53,13 @@
 #          in BALENA_CONFIGS[mynewconfigblock].
 #       c) Activate the new block appending the config block name to
 #          BALENA_CONFIGS.
-#          Ex: BALENA_CONFIGS_append = " mynewconfigblock"
+#          Ex: BALENA_CONFIGS:append = " mynewconfigblock"
 #          Mind the space!
 #   2. Using a special filename defined as BALENA_DEFCONFIG_NAME
 #       a) [optional] Define BALENA_DEFCONFIG_NAME. Default: "resin-defconfig"
 #       b) Add BALENA_DEFCONFIG_NAME to SRC_URI.
 
-inherit kernel-resin-noimage
+inherit kernel-resin-noimage sign-efi sign-gpg
 
 BALENA_DEFCONFIG_NAME ?= "resin-defconfig"
 
@@ -145,6 +145,7 @@ BALENA_CONFIGS ?= " \
     ipv6_mroute \
     disable_hung_panic \
     mdraid \
+    dmcrypt \
     ${FIRMWARE_COMPRESS} \
     "
 
@@ -629,6 +630,27 @@ BALENA_CONFIGS[mdraid] = " \
     CONFIG_MD_AUTODETECT=y \
 "
 
+# Enable dmcrypt/LUKS
+BALENA_CONFIGS[dmcrypt] = " \
+    CONFIG_CRYPTO_XTS=y \
+    CONFIG_DM_CRYPT=y \
+"
+
+BALENA_CONFIGS:append = "${@oe.utils.conditional('SIGN_API','','','secureboot',d)}"
+BALENA_CONFIGS[secureboot] = " \
+    CONFIG_KEXEC_SIG=y \
+    CONFIG_KEXEC_SIG_FORCE=y \
+    CONFIG_KEXEC_BZIMAGE_VERIFY_SIG=y \
+    CONFIG_INTEGRITY_PLATFORM_KEYRING=y \
+    CONFIG_LOAD_UEFI_KEYS=y \
+    CONFIG_MODULE_SIG=y \
+    CONFIG_MODULE_SIG_ALL=y \
+    CONFIG_MODULE_SIG_SHA512=y \
+    CONFIG_SECURITY_LOCKDOWN_LSM=y \
+    CONFIG_SECURITY_LOCKDOWN_LSM_EARLY=y \
+    CONFIG_SYSTEM_TRUSTED_KEYS="certs/kmod.crt" \
+"
+
 ###########
 # HELPERS #
 ###########
@@ -944,11 +966,46 @@ do_kernel_resin_checkconfig[vardeps] += "BALENA_CONFIGS BALENA_CONFIGS_DEPS"
 do_kernel_resin_checkconfig[deptask] += "do_kernel_resin_reconfigure"
 do_kernel_resin_checkconfig[dirs] += "${WORKDIR} ${B}"
 
+do_configure:append () {
+    if [ -f "${DEPLOY_DIR_IMAGE}/balena-keys/kmod.crt" ]; then
+        install -d certs
+        install -m 0655 "${DEPLOY_DIR_IMAGE}/balena-keys/kmod.crt" "certs/"
+    fi
+
+}
+do_configure[depends] += "balena-keys:do_deploy"
 # Force compile to depend on the last resin task in the chain
 do_compile[deptask] += "do_kernel_resin_checkconfig"
 
+# Because we chain signatures here, the signed artifact is different for each
+# and defined in :prepend for each task
+SIGNING_ARTIFACTS_BASE = "${B}/${KERNEL_OUTPUT_DIR}/${KERNEL_IMAGETYPE}.initramfs"
+addtask sign_efi before do_deploy after do_bundle_initramfs
+addtask sign_gpg before do_deploy after do_sign_efi
+
+do_sign_efi:prepend() {
+    SIGNING_ARTIFACTS="${SIGNING_ARTIFACTS_BASE}"
+}
+
+do_sign_gpg:prepend () {
+    SIGNING_ARTIFACTS=""
+    for SIGNING_ARTIFACT in ${SIGNING_ARTIFACTS_BASE}; do
+        SIGNING_ARTIFACTS="${SIGNING_ARTIFACTS} ${SIGNING_ARTIFACT}.signed"
+    done
+}
+
+do_sign_gpg:append () {
+    for SIGNING_ARTIFACT in ${SIGNING_ARTIFACTS_BASE}; do
+        mv "${SIGNING_ARTIFACT}.signed.sig" "${SIGNING_ARTIFACT}.sig"
+    done
+}
+
+do_deploy:prepend () {
+    SIGNING_ARTIFACTS="${SIGNING_ARTIFACTS_BASE}"
+}
+
 # copy to deploy dir latest .config and Module.symvers (after kernel modules have been built)
-do_deploy_append () {
+do_deploy:append () {
     install -m 0644 ${D}/boot/Module.symvers-* ${DEPLOYDIR}/Module.symvers
     install -m 0644 ${D}/boot/config-* ${DEPLOYDIR}/.config
 }

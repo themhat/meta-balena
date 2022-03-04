@@ -101,17 +101,18 @@ module.exports = {
 				: acc;
 		}, []);
 
-		/*test.true(
+		/* test.true(
 			result.length > 0 && result.length % 2 === 0,
 			'Blink pattern should have been detected',
-		);*/
+		); */
 
 		let count = 0;
 		for (let i = 0; i < result.length; i += 2) {
-			if (Math.abs(result[i] - result[i + 1]) === 255) {
+			if (Math.abs(result[i] !== result[i + 1])) {
 				++count;
 			}
 		}
+		test.comment(`Count is: ${count}`)
 		test.is(count > 10, true, `Led should have blinked multiple times`);
 	},
 };

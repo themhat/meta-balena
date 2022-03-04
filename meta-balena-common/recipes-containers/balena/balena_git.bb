@@ -11,10 +11,10 @@ LIC_FILES_CHKSUM = "file://src/import/LICENSE;md5=4859e97a9c7780e77972d989f0823f
 
 inherit systemd go pkgconfig useradd
 
-BALENA_VERSION = "19.03.29"
+BALENA_VERSION = "19.03.30"
 BALENA_BRANCH= "master"
 
-SRCREV = "6e4ae37185d26c54514e916ac413b3d7dc36482c"
+SRCREV = "c41a2d5c1a102294994118434aefaa54a76e2814"
 SRC_URI = "\
 	git://github.com/balena-os/balena-engine.git;branch=${BALENA_BRANCH};destsuffix=git/src/import \
 	file://balena.service \
@@ -22,7 +22,6 @@ SRC_URI = "\
 	file://balena-host.socket \
 	file://balena-healthcheck \
 	file://var-lib-docker.mount \
-	file://balena.conf.systemd \
 	file://balena.conf.storagemigration \
 	file://balena-tmpfiles.conf \
 	file://0001-imporve-hardcoded-CC-on-cross-compile-docker-ce.patch \
@@ -35,22 +34,22 @@ SECURITY_CFLAGS = "${SECURITY_NOPIE_CFLAGS}"
 SECURITY_LDFLAGS = ""
 
 SYSTEMD_PACKAGES = "${PN}"
-SYSTEMD_SERVICE_${PN} = "balena.service balena-host.socket var-lib-docker.mount"
+SYSTEMD_SERVICE:${PN} = "balena.service balena-host.socket var-lib-docker.mount"
 GO_IMPORT = "import"
 USERADD_PACKAGES = "${PN}"
-GROUPADD_PARAM_${PN} = "-r balena-engine"
+GROUPADD_PARAM:${PN} = "-r balena-engine"
 
-DEPENDS_append_class-target = " systemd"
-RDEPENDS_${PN}_class-target = "curl util-linux iptables tini systemd healthdog bash procps-ps"
-RRECOMMENDS_${PN} += "kernel-module-nf-nat"
+DEPENDS:append:class-target = " systemd"
+RDEPENDS:${PN}:class-target = "curl util-linux iptables tini systemd healthdog bash procps-ps"
+RRECOMMENDS:${PN} += "kernel-module-nf-nat"
 
 # oe-meta-go recipes try to build go-cross-native
-DEPENDS_remove_class-native = "go-cross-native"
-DEPENDS_append_class-native = " go-native"
+DEPENDS:remove:class-native = "go-cross-native"
+DEPENDS:append:class-native = " go-native"
 
-INSANE_SKIP_${PN} += "already-stripped"
+INSANE_SKIP:${PN} += "already-stripped"
 
-FILES_${PN} += " \
+FILES:${PN} += " \
 	/lib/systemd/system/* \
 	/home/root \
 	${localstatedir} \

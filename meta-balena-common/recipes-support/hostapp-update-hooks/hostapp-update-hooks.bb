@@ -8,7 +8,9 @@ S = "${WORKDIR}"
 inherit allarch
 
 HOSTAPP_HOOKS = " \
-    0-bootfiles \
+    0-signed-update \
+    1-bootfiles \
+    60-data-breadcrumb \
     70-sshd_migrate_keys \
     75-supervisor-db/75-forward_supervisor-db \
     75-supervisor-db/75-fwd_commit_supervisor-db \
@@ -31,11 +33,11 @@ python __anonymous() {
     d.setVar("SRC_URI", new_srcuri)
 }
 
-FILES_${PN} += " \
+FILES:${PN} += " \
 	${sysconfdir}/hostapp-update-hooks.d \
 	"
 
-RDEPENDS_${PN} = " \
+RDEPENDS:${PN} = " \
     balena \
     dropbear \
     openssh-keygen \
@@ -55,5 +57,5 @@ do_install() {
 	ln -s -r ${D}${bindir}/hostapp-update-hooks-v2 ${D}${bindir}/hostapp-update-hooks
 
 	sed -i -e 's:@BALENA_BOOT_FINGERPRINT@:${BALENA_BOOT_FINGERPRINT}:g;' \
-	 	${D}${sysconfdir}/hostapp-update-hooks.d/0-bootfiles
+	 	${D}${sysconfdir}/hostapp-update-hooks.d/1-bootfiles
 }

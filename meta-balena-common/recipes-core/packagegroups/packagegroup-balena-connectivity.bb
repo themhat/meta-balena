@@ -12,9 +12,12 @@ CONNECTIVITY_MODULES = ""
 
 CONNECTIVITY_FIRMWARES ?= " \
     linux-firmware-ath9k \
+    linux-firmware-mt7601u \
     linux-firmware-ralink \
     linux-firmware-rtl8192cu \
     linux-firmware-rtl8192su \
+    linux-firmware-rtl8723 \
+    linux-firmware-rtl8723b-bt \
     "
 
 CONNECTIVITY_PACKAGES = " \
@@ -30,7 +33,7 @@ CONNECTIVITY_PACKAGES = " \
     iw \
     "
 
-RDEPENDS_${PN} = " \
+RDEPENDS:${PN} = " \
     ${CONNECTIVITY_MODULES} \
     ${CONNECTIVITY_FIRMWARES} \
     ${CONNECTIVITY_PACKAGES} \

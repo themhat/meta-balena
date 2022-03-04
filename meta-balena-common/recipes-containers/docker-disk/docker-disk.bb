@@ -31,7 +31,7 @@ python () {
 
 PV = "${TARGET_TAG}"
 
-RDEPENDS_${PN} = "balena"
+RDEPENDS:${PN} = "balena"
 
 do_patch[noexec] = "1"
 do_configure[noexec] = "1"
@@ -54,6 +54,12 @@ do_compile () {
 	# docker daemon instead of the result of docker-native. This avoids version
 	# mismatches
 	DOCKER=$(PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" which docker)
+	cp "${TOPDIR}/../balena-yocto-scripts/automation/include/balena-api.inc" "${WORKDIR}/"
+
+	_token="${BALENA_API_TOKEN}"
+	if [ -z "${_token}" ] && [ -f "~/.balena/token" ]; then
+		_token=$(cat "~/.balena/token")
+	fi
 
 	# Generate the data filesystem
 	RANDOM=$$
@@ -69,9 +75,8 @@ do_compile () {
 		-e HELLO_REPOSITORY="${HELLO_REPOSITORY}" \
 		-e HOSTEXT_IMAGES="${HOSTEXT_IMAGES}" \
 		-e HOSTAPP_PLATFORM="${HOSTAPP_PLATFORM}" \
-		-e PRIVATE_REGISTRY="${PRIVATE_REGISTRY}" \
-		-e PRIVATE_REGISTRY_USER="${PRIVATE_REGISTRY_USER}" \
-		-e PRIVATE_REGISTRY_PASSWORD="${PRIVATE_REGISTRY_PASSWORD}" \
+		-e BALENA_API_ENV="${BALENA_API_ENV}" \
+		-e BALENA_API_TOKEN="${_token}" \
 		-e PARTITION_SIZE="${PARTITION_SIZE}" \
 		-e FS_BLOCK_SIZE="${FS_BLOCK_SIZE}" \
 		-v /sys/fs/cgroup:/sys/fs/cgroup:ro -v ${B}:/build \
@@ -79,7 +84,7 @@ do_compile () {
 	$DOCKER rmi ${_image_name}
 }
 
-FILES_${PN} = "/usr/lib/balena/balena-healthcheck-image.tar"
+FILES:${PN} = "/usr/lib/balena/balena-healthcheck-image.tar"
 do_install () {
 	install -d ${D}${sysconfdir}
 	mkdir -p ${D}/usr/lib/balena
@@ -89,7 +94,7 @@ do_install () {
 	done
 }
 
-FILES_${PN} += "/etc/hostapp-extensions.conf"
+FILES:${PN} += "/etc/hostapp-extensions.conf"
 
 do_deploy () {
 	install -m 644 ${B}/resin-data.img ${DEPLOYDIR}/resin-data.img

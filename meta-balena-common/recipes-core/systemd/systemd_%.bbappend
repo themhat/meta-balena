@@ -1,6 +1,6 @@
-FILESEXTRAPATHS_append := ":${THISDIR}/${PN}"
+FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 
-SRC_URI_append = " \
+SRC_URI:append = " \
     file://coredump.conf \
     file://reboot.target.conf \
     file://poweroff.target.conf \
@@ -36,14 +36,14 @@ python() {
         d.setVar('SRC_URI', srcuri + ' file://0001-resolved-fix-loop-on-packets-with-pseudo-dns-types.patch')
 }
 
-FILES_${PN} += " \
+FILES:${PN} += " \
     /srv \
     /etc/localtime \
     /etc/mtab \
     ${sysconfdir}/systemd/journald.conf.d \
     "
 
-do_install_append() {
+do_install:append() {
     install -d -m 0755 ${D}/${sysconfdir}/systemd/journald.conf.d
     install -m 06444 ${WORKDIR}/journald-balena-os.conf ${D}/${sysconfdir}/systemd/journald.conf.d
 
@@ -97,36 +97,41 @@ do_install_append() {
     install -m 0644 ${WORKDIR}/getty-target-development-features.conf ${D}${sysconfdir}/systemd/system/getty.target.d/development-features.conf
     install -d -m 0755 ${D}${sysconfdir}/systemd/system/getty@.service.d
     install -m 0644 ${WORKDIR}/getty-service-development-features.conf ${D}${sysconfdir}/systemd/system/getty@.service.d/development-features.conf
+
+    # We don't have audit configs enabled in the kernel, so we can remove the audit sockets
+    rm ${D}/lib/systemd/system/sockets.target.wants/systemd-journald-audit.socket || true
+    rm ${D}/lib/systemd/system/systemd-journald-audit.socket || true
 }
 
 PACKAGES =+ "${PN}-zram-swap"
-SUMMARY_${PN}-zram-swap = "Enable compressed memory swap"
-DESCRIPTION_${PN}-zram-swap = "Enable a already created ZRAM swap memory device."
+SUMMARY:${PN}-zram-swap = "Enable compressed memory swap"
+DESCRIPTION:${PN}-zram-swap = "Enable a already created ZRAM swap memory device."
 SYSTEMD_PACKAGES += "${PN}-zram-swap"
-FILES_${PN}-zram-swap = "\
+FILES:${PN}-zram-swap = "\
     ${systemd_unitdir}/system/dev-zram0.swap \
 "
-SYSTEMD_SERVICE_${PN}-zram-swap += "dev-zram0.swap"
+SYSTEMD_SERVICE:${PN}-zram-swap += "dev-zram0.swap"
 
-FILES_udev += "\
+FILES:udev += "\
     ${rootlibexecdir}/udev/resin_update_state_probe \
     ${rootlibexecdir}/udev/zram-swap-init           \
 "
 
-RDEPENDS_${PN}_append = " os-helpers-fs balena-ntp-config util-linux periodic-vacuum-logs"
+RDEPENDS:${PN}:append = " os-helpers-fs balena-ntp-config util-linux periodic-vacuum-logs"
+RDEPENDS_${PN}:append = "${@oe.utils.conditional('SIGN_API','','',' lvm2-udevrules',d)}"
 
 # Network configuration is managed by NetworkManager. ntp is managed by chronyd
-PACKAGECONFIG_remove = "resolved networkd timesyncd"
+PACKAGECONFIG:remove = "resolved networkd timesyncd"
 
-PACKAGECONFIG_remove = "polkit"
+PACKAGECONFIG:remove = "polkit"
 
 # Add missing users/groups defined in /usr/lib/sysusers.d/*
 # In this time we avoid creating these at first boot
-USERADD_PARAM_${PN} += "; --system systemd-bus-proxy; --system -d / -M --shell /bin/nologin -u 65534 nobody;"
-GROUPADD_PARAM_${PN} += "; -r wheel; -r nobody;"
+USERADD_PARAM:${PN} += "; --system systemd-bus-proxy; --system -d / -M --shell /bin/nologin -u 65534 nobody;"
+GROUPADD_PARAM:${PN} += "; -r wheel; -r nobody;"
 
 # Clean up udev hardware database source files
-pkg_postinst_udev-hwdb_append () {
+pkg_postinst:udev-hwdb:append () {
     # These files have already been used to generate /etc/udev/hwdb.bin which is the only file used at runtime
     rm $D/lib/udev/hwdb.d/*
 }
